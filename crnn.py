@@ -34,43 +34,49 @@ class CRNN(nn.Module):
         self.linear = nn.Linear(512, nclass)
 
     def forward(self, x):
-        # [?, 32, W, 1] -> [?, 32, W, 64] -> [?, 16, W/2, 1]
+        #  (N, 3, 32, W) -> (N, 64, 16, W/2)
         out = self.conv1(x)
         out = self.relu(out)
         out = self.mp1(out)
 
-        # [?, 16, W/2, 1] -> [?, 16, W/2, 128] -> [?, 8, W/4, 128]
+        # (N, 64, 16, W/2) -> (N, 128, 8, W/4)
         out = self.conv2(out)
+        out = self.relu(out)
         out = self.mp2(out)
 
-        # [?, 8, W/4, 128] -> [?, 8, W/4, 256]
+        # (N, 128, 8, W/4) -> (N, 256, 8, W/4)
         out = self.conv3(out)
+        out = self.relu(out)
 
-        # [?, 8, W/4, 256] -> [?, 8, W/2, 256] -> [?, 4, W/4, 256]
+        # (N, 256, 8, W/4) -> (N, 256, 4, W/4)
         out = self.conv4(out)
+        out = self.relu(out)
         out = self.mp4(out)
 
-        # [?, 4, W/4, 512] -> [?, 4, W/4, 512]
+        # (N, 256, 4, W/4) -> (N, 512, 4, W/4)
         out = self.conv5(out)
         out = self.bn5(out)
+        out = self.relu(out)
 
-        # [?, 4, W/4, 512] -> [?, 4, W/4, 512] -> [?, 2, W/4, 512]
+        # (N, 512, 4, W/4) -> (N, 512, 2, W/4)
         out = self.conv6(out)
         out = self.bn6(out)
+        out = self.relu(out)
         out = self.mp6(out)
 
-        # [?, 2, W/4, 512] -> [?, 1, W/4-3(?), 512]
+        # (N, 512, 2, W/4) ->  (N, 512, 1, W/4-)
         out = self.conv7(out)
+        out = self.relu(out)
 
-        # [?, 1, W/4-3(?), 512]  -> [batch, depth_chanel, width_seq] = [?, W/4-3, 512]
+        # (N, 512, 1, W/4-)  -> (N, 512, W/4-)
         out = torch.squeeze(out, dim=2)
-        # [seq, batch, chanel]
+        # (t, n, 512)
         out = out.permute(2, 0, 1)
 
-        # [?, W/4-3, 512] -> # [?, W/4-3, 512] -> # [?, W/4-3, 512]
+        # (N, W/4, 512) -> (N, W/4, 512)
         out, _ = self.bidiLSTMs(out)
 
-        # [?, W/4-3, 136(alphabet_size)]
+        # (N, W/4, 512) -> (N*(W/4), nclass)
         T, b, h = out.size()
         out = out.view(T * b, h)
         out = self.linear(out)

@@ -1,6 +1,5 @@
 import string
 
-import cv2
 import numpy as np
 import torch
 from trdg.generators import GeneratorFromDict
